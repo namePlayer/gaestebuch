@@ -11,7 +11,7 @@ class TemplateBuilder
 
         include(__DIR__. '/../template/' . $name . '.php');
 
-        return ob_get_clean();
+        echo ob_get_clean();
     }
 
     public function renderMessages(array $messages = []) {

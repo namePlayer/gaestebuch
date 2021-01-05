@@ -1,53 +1,58 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Gästebuch</title>
-    <link rel="stylesheet" href="assets/bootstrap.min.css">
-</head>
-<body>
+<?php
 
-    <div class="container-fluid mt-4">
+if(isset($_POST['newEntryNameInput'], $_POST['newEntryEmailInput'], $_POST['newEntryTextInput'])) {
 
-        <div class="row">
-            <div class="col-lg-3">
-                <form action="" method="post">
-                    <div class="card shadow">
-                        <div class="card-header text-center">
-                            <b>Neuer Eintrag</b>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label for="newEntryNameInput" class="form-label">Name:</label>
-                                <input type="text" class="form-control" id="newEntryNameInput" name="newEntryNameInput">
-                            </div>
-                            <div class="mb-3">
-                                <label for="newEntryEmailInput" class="form-label">Email:</label>
-                                <input type="email" class="form-control" id="newEntryEmailInput" name="newEntryEmailInput">
-                            </div>
-                            <div class="mb-3">
-                                <label for="newEntryTextInput" class="form-label">Text:</label>
-                                <textarea id="newEntryTextInput" class="form-control" name="newEntryTextInput"></textarea>
-                            </div>
-                            <input type="hidden" value="<?= $_SESSION['_token']; ?>" name="_token">
-                        </div>
-                        <div class="card-footer">
-                            <button type="submit" class="btn btn-dark btn-sm float-end">Eintragen</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="col-lg-9">
-                <?php echo $templateBuilder->renderMessages($messages); ?>
-                <div class="container">
+    $name = $_POST['newEntryNameInput'];
+    $email = $_POST['newEntryEmailInput'];
+    $text = $_POST['newEntryTextInput'];
 
-                </div>
-            </div>
-        </div>
-    </div>
+    $executeInput = true;
+    if($oneTimeTokenInvalid) {
+        $messages[] = ['type' => 'danger', 'message' => 'Der Token ist ungültig'];
+        $executeInput = false;
+    }
 
-</body>
-</html>
+    if(empty($name)) {
+        $messages[] = ['type' => 'danger', 'message' => 'Bitte gebe einen Namen an!'];
+        $executeInput = false;
+    }
+
+    if(empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $messages[] = ['type' => 'danger', 'message' => 'Bitte gebe eine gültige E-Mail Adresse an!'];
+        $executeInput = false;
+    }
+
+    if(empty($text)) {
+        $messages[] = ['type' => 'danger', 'message' => 'Bitte gebe einen Text ein!'];
+        $executeInput = false;
+    }
+
+    if($executeInput) {
+        $text = htmlspecialchars(nl2br($text), ENT_QUOTES, 'UTF-8');
+        $text = str_replace('&lt;br /&gt;', '<br />', $text);
+
+        $currentTime = time();
+
+        $stmt = $dbConnection->prepare('INSERT INTO `Entry` SET `name` = :name, `email` = :email, `message` = :msg, `timestamp` = :curtime');
+        $stmt->bindParam(':name', $name);
+        $stmt->bindParam(':email', $email);
+        $stmt->bindParam(':msg', $text);
+        $stmt->bindParam(':curtime', $currentTime);
+
+        if($stmt->execute()) {
+            $executeInput = false;
+            $messages[] = ['type' => 'success', 'message' => 'Der Eintrag wurde erfolgreich angelegt!'];
+        }
+
+        if($executeInput == true) {
+            $messages[] = ['type' => 'danger', 'message' => 'Es ist ein Fehler aufgetreten!'];
+            $executeInput = false;
+        }
+    }
+
+}
+
+$stmt = $dbConnection->prepare("SELECT `name`, `email`, `timestamp`, `message` FROM `Entry` WHERE `show` = 'TRUE' ORDER BY `timestamp` DESC");
+$stmt->execute();
+
+require_once __DIR__.'/../template/home.php';
